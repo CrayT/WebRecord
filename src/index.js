@@ -9,6 +9,7 @@ function replay() {
     video.play();
 }
 function stopRecord() {
+    localStorage.setItem("webRecording", false);
     mediaRecorder && mediaRecorder.stop();
 }
 function startRecord() {
@@ -25,6 +26,8 @@ function startRecord() {
             audio: false,
         }
     ).then(stream => {
+        localStorage.setItem("webRecordStartTime", performance.now());
+        localStorage.setItem("webRecording", true);
         mediaRecorder = new MediaRecorder(stream, {type: 'video/webm'});
         mediaRecorder.onstop = (event) => {
             console.log('----onstop----', event);
@@ -47,6 +50,7 @@ function download() {
     a.click();
 }
 function init() {
+    localStorage.setItem("webRecording", false);
     const recordBrower = document.getElementById('recordBrower');
     const recordCamera = document.getElementById('recordCamera');
 
@@ -80,7 +84,6 @@ function init() {
         replay();
     }
 
-
     const downloadBtn = document.getElementById('downloadRecord');
     downloadBtn.onclick = () => {
         download();
@@ -88,8 +91,14 @@ function init() {
 
     // 监控内存内用
     const momoryBlock = document.getElementById('momoryBlock');
+    const timeBlock = document.getElementById('timeBlock');
+
     const update = () => {
         momoryBlock.innerHTML=`${performance.memory.usedJSHeapSize/performance.memory.jsHeapSizeLimit*100}%`;
+        if(localStorage.getItem('webRecordStartTime') && localStorage.getItem("webRecording") == 'true'){
+            timeBlock.innerHTML = `${(performance.now() - localStorage.getItem('webRecordStartTime')) / 1000}s`;
+        }
+
         requestAnimationFrame(update)
     }
     update();

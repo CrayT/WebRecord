@@ -18,5 +18,8 @@ Web record demo by WebRtc.
 ### 权限
 - 提示NotAllowed permission权限error：
     mac：设置 -> 隐私 -> 录屏 -> 开启chrome权限
-    ubuntu：没有该项设置，displaySurface为monitor时会报错。todo
+    ubuntu：没有该项设置, 但是不报错。
     ps: Screenity插件可以录制整个屏幕，但也要弹窗指定录制窗口，底下也有悬浮窗。
+
+- CPU占用高
+    - mac上10%左右，ubuntu到100%。。。
