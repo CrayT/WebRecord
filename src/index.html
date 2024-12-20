@@ -1,0 +1,19 @@
+<body>
+    <div id="container"></div>
+    <div>
+        <span>选择类型: </span>
+        <input type="checkbox" id="recordBrower" checked>录制网页</input>
+        <input type="checkbox" id="recordCamera">录制摄像头</input>
+    </div>
+    <div style="position: relative;margin-top: 20;">
+        <button id="startRecord">开始录制</button>
+        <button id="stopRecord">结束录制</button>
+        <button id="replayRecord">回放录制</button>
+        <button id="downloadRecord">下载录制</button>
+    </div>
+    <div style="position: relative;margin-top: 20;">当前内存: 
+        <span id="momoryBlock"></span>
+    </div>
+    <video style="position:absolute;width: 800px;top:100px;left:100px"></video>
+    <script type="module" src="/index.js" ></script>
+</body>
