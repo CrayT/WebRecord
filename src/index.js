@@ -98,9 +98,7 @@ function init() {
         if(localStorage.getItem('webRecordStartTime') && localStorage.getItem("webRecording") == 'true'){
             timeBlock.innerHTML = `${(performance.now() - localStorage.getItem('webRecordStartTime')) / 1000}s`;
         }
-
-        requestAnimationFrame(update)
     }
-    update();
+    setInterval(() =>{ update()}, 1000);
 }
 init();
