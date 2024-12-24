@@ -1,3 +1,6 @@
+// import { addBlob } from "./indexDB";
+import * as mydb from "/indexDB.js";
+
 const blobs = [];
 let mediaRecorder;
 let recordType = 'browser';
@@ -36,6 +39,10 @@ function startRecord() {
             console.log('data', event);
             if(event.data && event.data.size > 0){
                 blobs.push(event.data);
+                // 存到indexdb内
+                // addBlob({
+
+                // })
             }
         }
         mediaRecorder.start(5000);
