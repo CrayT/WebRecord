@@ -1,5 +1,4 @@
-// import { addBlob } from "./indexDB";
-import * as mydb from "/indexDB.js";
+import { addBlob } from "./indexDB.js";
 
 const blobs = [];
 let mediaRecorder;
@@ -40,9 +39,10 @@ function startRecord() {
             if(event.data && event.data.size > 0){
                 blobs.push(event.data);
                 // 存到indexdb内
-                // addBlob({
-
-                // })
+                addBlob({
+                    chunk_id: JSON.stringify(Math.random()),
+                    data: event.data,
+                })
             }
         }
         mediaRecorder.start(5000);

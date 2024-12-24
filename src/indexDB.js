@@ -3,7 +3,7 @@ const DB_NAME = 'webrecord';
 const TABLE_NAME = 'chunks';
 
 const myDB = indexedDB.open(DB_NAME, 1);
-let mydb;
+export let mydb;
 let store;
 
 myDB.onsuccess = function(event) {
@@ -48,16 +48,33 @@ export function clearDB() {
 
 export function getAllBlobs() {
     if(mydb) {
-        const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).openCursor();
+        const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).getAll();
         req.onsuccess = function(event) {
-            console.log('get cursor blob success');
-            const cursor = event.target.result;
+            console.log('getall success:', event.target.result)
+        }
+        req.onerror = function(e) {
+            console.log('add blob error', e);
+        }
+    } else {
+        console.warn('not found mydb');
+    }
+}
 
-            if (cursor) {
-                console.log('cursor: ', cursor.value);
-                cursor.continue();
-            } else {
-                console.log('没有更多数据了！');
+export function clearAll() {
+    if(mydb) {
+        const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).getAll();
+        req.onsuccess = function(event) {
+            console.log('getall success:', event.target.result)
+            if(event.target.result) {
+                event.target.result.forEach(data => {
+                    const deleteReq = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).delete(data.chunk_id);
+                    deleteReq.onsuccess = function() {
+                        console.log('delete success: ', data.chunk_id);
+                    }
+                    deleteReq.onerror = function() {
+                        console.log('delete error: ', data.chunk_id);
+                    }
+                });
             }
         }
         req.onerror = function(e) {
@@ -70,5 +87,4 @@ export function getAllBlobs() {
 
 window.addBlob = addBlob;
 window.getAllBlobs = getAllBlobs;
-
-export default mydb;
+window.clearAll = clearAll;
