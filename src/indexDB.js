@@ -47,17 +47,22 @@ export function clearDB() {
 }
 
 export function getAllBlobs() {
-    if(mydb) {
-        const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).getAll();
-        req.onsuccess = function(event) {
-            console.log('getall success:', event.target.result)
+    return new Promise((resolve, reject) => {
+        if(mydb) {
+            const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).getAll();
+            req.onsuccess = function(event) {
+                console.log('getall success:', event.target.result)
+                resolve(event.target.result.map(data => data.data));
+            }
+            req.onerror = function(e) {
+                console.log('add blob error', e);
+                reject(e);
+            }
+        } else {
+            console.warn('not found mydb');
+            reject('notFound db');
         }
-        req.onerror = function(e) {
-            console.log('add blob error', e);
-        }
-    } else {
-        console.warn('not found mydb');
-    }
+    });
 }
 
 export function clearAll() {

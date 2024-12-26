@@ -40,3 +40,6 @@ Web record demo by WebRtc.
     - 可存储二进制数据，如ArrayBuffer和Blob对象
     - 有丰富API提供使用
     - 异步操作
+
+### https访问
+- 使用ngrok生成https url访问
