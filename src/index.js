@@ -6,24 +6,37 @@ const blobs = [];
 let mediaRecorder;
 let recordType = 'browser';
 
-const format = 'mp4';
+let number_id = 0;
+
+const format = 'webm';
 
 const ww = new Worker('./worker.js');
 window.myworker = ww;
 
-function replay() {
-    console.log('blobs', blobs)
+function replay(data) {
+    console.log('blobs', data, blobs)
     const video = document.querySelector('video');
-    video.src = URL.createObjectURL(new Blob(blobs, {type: 'video/webm'}));
+    video.src = URL.createObjectURL(new Blob(data ? data : blobs, {type: 'video/webm'}));
     video.play();
 }
 function stopRecord() {
     localStorage.setItem("webRecording", false);
     mediaRecorder && mediaRecorder.stream.getVideoTracks()[0].stop();
+
+    setTimeout(() => {
+        // convertChunks()
+        getAllBlobs().then(data => {
+            console.log('ready to replay')
+            const newBlob = data.map(d => new Blob([d.slice()], {type: d.type}));
+            replay(newBlob);
+        });
+    }, 100);
 }
+
 function startRecord() {
     clearAll();
     blobs.length = 0;
+    number_id = 0;
     // getUserMedia // 摄像头
     // getDisplayMedia // 屏幕
     // getUserMedia({video: {mediaSource: 'screen'}}) // fireFox的调用方法
@@ -58,7 +71,7 @@ function startRecord() {
                 blobs.push(event.data);
                 // 存到indexdb内
                 addBlob({
-                    chunk_id: JSON.stringify(Math.random()),
+                    chunk_id: number_id++,
                     data: event.data,
                 })
             }
@@ -66,54 +79,45 @@ function startRecord() {
         mediaRecorder.start(1000);
     });
 }
-async function download() {
-    getAllBlobs().then(async (data) => {
-        console.log('download get all:', data)
-        console.time('---start')
 
-        const uArrys = [];
-        for(let i = 0; i < data.length; i++) {
-            const base64 = await blobToBase64(data[i]);
-            const uArry = base64ToUint8Array(base64);
-            uArrys.push(uArry);
-        }
-        const blob = new Blob(uArrys, {
-            type: "video/mp4",
-          });
-        fixWebmDuration(
-            blob,
-            Date.now() - localStorage.getItem('webRecordStartTime'),
-            async (fixedWebm) => {
-                const reader = new FileReader();
-                reader.onloadend = function () {
-                    const base64data = reader.result;
-                    console.log('base64data',base64data)
-
-                    const finalUArray = base64ToUint8Array(base64data);
-                    console.log('final finalUArray', finalUArray)
-
-                    const url = URL.createObjectURL(new Blob([finalUArray]), { type: `video/${format}` }); // todo 下载的有时无法播放，有点问题
-                    console.timeEnd('---start')
-                    const  a = document.createElement('a');
-                    a.href = url;
-                    a.style.display = 'none';
-                    a.download='record.' + format;
-                    a.click();
-                    
-                };
-                reader.readAsDataURL(fixedWebm);
+async function convertChunks() {
+    return new Promise((resolve, reject) => {
+        getAllBlobs().then(async (data) => {
+            console.log('convertChunks, get all:', data)
+            const uArrys = [];
+            for(let i = 0; i < data.length; i++) {
+                const base64 = await blobToBase64(data[i]);
+                const uArry = base64ToUint8Array(base64);
+                uArrys.push(uArry);
             }
-        );
-
-        // const url = URL.createObjectURL(new Blob(blobs), { type: `video/${format}` }); // todo 下载的有时无法播放，有点问题
-        // const  a = document.createElement('a');
-        // a.href = url;
-        // a.style.display = 'none';
-        // a.download=`record.${format}`;
-        // a.click();
-
-    }).catch(e => {
-        console.log('download get all error', e)
+            const blob = new Blob(uArrys, {
+                type: "video/webm"
+            });
+            fixWebmDuration(
+                blob,
+                Date.now() - localStorage.getItem('webRecordStartTime'),
+                async (fixedWebm) => {
+                    const reader = new FileReader();
+                    reader.onloadend = function () {
+                        const base64data = reader.result;
+                        const finalUArray = base64ToUint8Array(base64data);
+                        console.log('final finalUArray', finalUArray)                        
+                        resolve(finalUArray);
+                    };
+                    reader.readAsDataURL(fixedWebm);
+                }
+            );
+        })
+    });
+}
+async function download() {
+    convertChunks(data => {
+        const url = URL.createObjectURL(new Blob([data]), { type: `video/${format}` });
+        const  a = document.createElement('a');
+        a.href = url;
+        a.style.display = 'none';
+        a.download='record.' + format;
+        a.click();
     });
 }
 function init() {

@@ -31,7 +31,6 @@ Web record demo by WebRtc.
 输入框中填写需要开启的域名，譬如 "http://10.xxx.xxx.xxx:8080"，多个以逗号相连,(必须是http://ip:port形式)
 点击右下角 Relaunch 按钮，或者重启后生效
 
-
 ### 存储
 - 保存在浏览器的indexDB中，优势
     - 存储无上限，对象存储
@@ -40,6 +39,9 @@ Web record demo by WebRtc.
     - 可存储二进制数据，如ArrayBuffer和Blob对象
     - 有丰富API提供使用
     - 异步操作
+
+### 顺序问题
+- 不能用getAll获取所有存储数据，顺序不是按照存储先后，用openCursor游标方式获取全部数据
 
 ### https访问
 - 使用ngrok生成https url访问

@@ -42,17 +42,21 @@ export function addBlob(item) {
     }
 }
 
-export function clearDB() {
-
-}
-
 export function getAllBlobs() {
     return new Promise((resolve, reject) => {
         if(mydb) {
-            const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).getAll();
+            const allData = [];
+            const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).openCursor();
             req.onsuccess = function(event) {
-                console.log('getall success:', event.target.result)
-                resolve(event.target.result.map(data => data.data));
+                console.log('openCursor success:', event.target.result)
+                const cursor = event.target.result;
+                if (cursor) {
+                    allData.push(cursor.value.data);
+                    cursor.continue();
+                  } else {
+                    console.log(`已获取的所有客户`, allData);
+                    resolve(allData);
+                  }
             }
             req.onerror = function(e) {
                 console.log('add blob error', e);
