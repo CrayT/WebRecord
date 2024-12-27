@@ -41,7 +41,7 @@ Web record demo by WebRtc.
     - 异步操作
 
 ### 顺序问题
-- 不能用getAll获取所有存储数据，顺序不是按照存储先后，用openCursor游标方式获取全部数据
+- 不要用随机字符作为主键，貌似indexDB在每次存数据后会打乱顺序，或者没有顺序？最好能根据id重新对数据进行排序，否则可能webm无法播放。
 
 ### https访问
 - 使用ngrok生成https url访问

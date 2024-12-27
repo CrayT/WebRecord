@@ -51,11 +51,13 @@ export function getAllBlobs() {
                 console.log('openCursor success:', event.target.result)
                 const cursor = event.target.result;
                 if (cursor) {
-                    allData.push(cursor.value.data);
+                    allData.push(cursor.value);
                     cursor.continue();
                   } else {
+                    // 重新按照存储顺序排序
+                    allData.sort((a, b) => a.chunk_id - b.chunk_id);
                     console.log(`已获取的所有客户`, allData);
-                    resolve(allData);
+                    resolve(allData.map(d => d.data));
                   }
             }
             req.onerror = function(e) {

@@ -69,11 +69,10 @@ function startRecord() {
             console.log('data', event);
             if(event.data && event.data.size > 0){
                 blobs.push(event.data);
-                // 存到indexdb内
                 addBlob({
-                    chunk_id: number_id++,
+                    chunk_id: Date.now(), // 用递增的时间戳作为主键
                     data: event.data,
-                })
+                });
             }
         }
         mediaRecorder.start(1000);
@@ -111,7 +110,7 @@ async function convertChunks() {
     });
 }
 async function download() {
-    convertChunks(data => {
+    convertChunks().then(data => {
         const url = URL.createObjectURL(new Blob([data]), { type: `video/${format}` });
         const  a = document.createElement('a');
         a.href = url;
