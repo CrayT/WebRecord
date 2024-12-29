@@ -1,6 +1,7 @@
 # WebRecord
 Web record demo by WebRtc.
 
+- 前端还是只保存各个Blob对象，由后端来处理合并：[Blob] -> [webm] -> [video] -> video
 
 ### constrains
     - getDisplayMedia：
@@ -45,3 +46,16 @@ Web record demo by WebRtc.
 
 ### https访问
 - 使用ngrok生成https url访问
+
+
+### 使用ffmpeg合并多个视频
+- 准备mp4视频
+- 新建video.txt文件，写如以下内容:
+
+file '1.mp4'
+
+file '2.mp4'
+
+- 执行命令：
+
+./ffmpeg -f concat -i video.txt -c copy concat.mp4

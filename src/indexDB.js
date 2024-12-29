@@ -2,100 +2,184 @@
 const DB_NAME = 'webrecord';
 const TABLE_NAME = 'chunks';
 
-const myDB = indexedDB.open(DB_NAME, 1);
-export let mydb;
-let store;
-
-myDB.onsuccess = function(event) {
-    // 后续可以直接拿到db
-    console.log('indexdb success')
-    console.log(event.target.result)
-    mydb = event.target.result;
-    window.mydb = mydb;
+const DBState = {
+    Null: 0,
+    Opening: 1,
+    Ready: 2,
+    Error: 3,
 }
+class MyDB {
+    constructor() {
+        this.mydb = null;
+        this.state = DBState.Null;
+        const db = indexedDB.open(DB_NAME, 1);
+        this.state = DBState.Opening;
+        db.onsuccess = this.onsuccess.bind(this);
+        db.onupgradeneeded = this.onupgradeneeded.bind(this);
+        db.onerror = this.onerror.bind(this);
+        this.callback = [];
+    }
 
-myDB.onerror = function(e) {
-    console.log('indexdb error', e)
-}
+    onsuccess(event) {
+        console.log('indexdb success')
+        console.log(event.target.result)
+        const mydb = event.target.result;
+        this.mydb = mydb;
+        this.state = DBState.Ready;
+        this.dispatch({type: 'success'});
+    }
 
-myDB.onupgradeneeded = function(event) {
-    // 第一次创建db、store
-    console.log('indexdb onupgradeneeded')
-    mydb = event.target.result;
-    // 创建table，指定key键值
-    store = mydb.createObjectStore(TABLE_NAME, {keyPath: 'chunk_id'});
-    console.log('store: ', store)
-    window.mystore = store;
-}
+    addListener(callback) {
+        this.callback.push(callback);
+    }
 
-export function addBlob(item) {
-    if(mydb) {
-        const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).add(item);
-        req.onsuccess = function() {
-            console.log('add blob success');
+    dispatch(data) {
+        if(data.type === 'success') {
+            this.callback.forEach(cb => {
+                cb();
+            });
         }
-        req.onerror = function(e) {
-            console.log('add blob error', e);
+    }
+
+    onerror() {
+        console.log('open indexdb error');
+        this.state = DBState.Error;
+    }
+
+    onupgradeneeded(event) {
+        // 第一次创建db、store
+        console.log('indexdb onupgradeneeded')
+        const mydb = event.target.result;
+        // 创建table，指定key键值
+        this.mydb = mydb;
+        this.state = DBState.Ready;
+        this.dispatch({type: 'success'});
+    }
+
+    async waitReady() {
+        return new Promise((resolve, reject) => {
+            const callback = function() {
+                console.log('callback')
+                resolve();
+            }
+            this.addListener(callback);
+        });
+    }
+
+    async addBlob(item) {
+        const add = async () => {
+            return new Promise((resolve, reject) => {
+                const req = this.mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).add(item);
+                req.onsuccess = function() {
+                    console.log('add blob success');
+                    resolve();
+                }
+                req.onerror = function(e) {
+                    console.log('add blob error', e);
+                    reject('add blob error');
+                }                
+            });
         }
-    } else {
-        console.warn('not found mydb');
+        if(this.state === DBState.Opening) {
+            console.log('db is opening')
+            await this.waitReady();
+            return add();
+        } else if(this.state === DBState.Ready) {
+            return add();
+        }
+    }
+
+    async clearAll() {
+        const clear = async () => {
+            return new Promise((resolve, reject) => {
+                const req = this.mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).clear();
+                req.onsuccess = function(event) {
+                    if(!event.target.result) {
+                        console.log('clear all records success')
+                        resolve();
+                    } else {
+                        reject('clear all error: operate fail');
+                    }
+                }
+                req.onerror = function(e) {
+                    reject('clear all error: error');
+                }
+            })
+        }
+        if(this.state === DBState.Opening) {
+            console.log('db is opening')
+            await this.waitReady();
+            return clear();
+        } else if(this.state === DBState.Ready) {
+            return clear();
+        }
+    }
+
+    async deleteObjectsById(ids) {
+        const delObj = async (id) => {
+            return new Promise((resolve, reject) => {
+                const req = this.mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).delete(id);
+                req.onsuccess = function() {
+                    console.log(`delete ${id} success`)
+                    resolve();
+                }
+                req.onerror = function() {
+                    reject('delete error');
+                }
+            })
+        }
+        if(this.state === DBState.Opening) {
+            console.log('db is opening')
+            await this.waitReady();
+            for(let id of ids) {
+                await delObj(id);
+            }
+        } else if(this.state === DBState.Ready) {
+            for(let id of ids) {
+                await delObj(id);
+            }
+        }
+    }
+
+    async getAllBlobs(filter) {
+        const getAll = async () => {
+            return new Promise((resolve, reject) => {
+                const allData = [];
+                const req = this.mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).openCursor();
+                req.onsuccess = function(event) {
+                    console.log('openCursor success:', event.target.result)
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        if(filter) {
+                            if(filter(cursor.value)) {
+                                allData.push(cursor.value);
+                            }
+                        } else {
+                            allData.push(cursor.value);
+                        }
+                        cursor.continue();
+                    } else {
+                        // 重新按照存储顺序排序
+                        allData.sort((a, b) => a.chunk_id - b.chunk_id);
+                        console.log(`已获取的所有`, allData);
+                        resolve(allData);
+                    }
+                }
+                req.onerror = function(e) {
+                    console.log('add blob error', e);
+                    reject(e);
+                }
+            });
+        }
+        if(this.state === DBState.Opening) {
+            console.log('db is opening')
+            await this.waitReady();
+            return getAll();
+        } else if(this.state === DBState.Ready) {
+            return getAll();
+        }
     }
 }
 
-export function getAllBlobs() {
-    return new Promise((resolve, reject) => {
-        if(mydb) {
-            const allData = [];
-            const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).openCursor();
-            req.onsuccess = function(event) {
-                console.log('openCursor success:', event.target.result)
-                const cursor = event.target.result;
-                if (cursor) {
-                    allData.push(cursor.value);
-                    cursor.continue();
-                  } else {
-                    // 重新按照存储顺序排序
-                    allData.sort((a, b) => a.chunk_id - b.chunk_id);
-                    console.log(`已获取的所有客户`, allData);
-                    resolve(allData.map(d => d.data));
-                  }
-            }
-            req.onerror = function(e) {
-                console.log('add blob error', e);
-                reject(e);
-            }
-        } else {
-            console.warn('not found mydb');
-            reject('notFound db');
-        }
-    });
-}
-
-export function clearAll() {
-    if(mydb) {
-        const req = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).getAll();
-        req.onsuccess = function(event) {
-            console.log('getall success:', event.target.result)
-            if(event.target.result) {
-                event.target.result.forEach(data => {
-                    const deleteReq = mydb.transaction(TABLE_NAME, 'readwrite').objectStore(TABLE_NAME).delete(data.chunk_id);
-                    deleteReq.onsuccess = function() {
-                        console.log('delete success: ', data.chunk_id);
-                    }
-                    deleteReq.onerror = function() {
-                        console.log('delete error: ', data.chunk_id);
-                    }
-                });
-            }
-        }
-        req.onerror = function(e) {
-            console.log('add blob error', e);
-        }
-    } else {
-        console.warn('not found mydb');
-    }
-}
-
-window.addBlob = addBlob;
-window.getAllBlobs = getAllBlobs;
-window.clearAll = clearAll;
+export const myDB = new MyDB();
+window.myDB = myDB;
