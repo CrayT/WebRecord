@@ -9,11 +9,14 @@ window.currentBlob = blobs;
 const format = 'webm';
 
 let grouId = Math.random().toString(30).slice(-8); // 8位随机字符串
+const filter = function(data){
+    return data.type === 'origin';
+}
 
 async function readyWork() {
     if(localStorage.getItem("webRecording") == 'true'){
         // 2，将已存的数据保存为webm
-        await download()
+        await downloadBase64(); //download()
         await mergeBatchBlobs();
         // 3，清空数据库的数据
         // await myDB.clearAll()
@@ -38,10 +41,11 @@ function pauseRecord() {
 function resumeRecord() {
     mediaRecorder && mediaRecorder.resume();
 }
-function stopRecord() {
+async function stopRecord() {
     localStorage.setItem("webRecording", false);
     localStorage.setItem("webRecordStopTime", Date.now());
     mediaRecorder && mediaRecorder.stream.getVideoTracks()[0].stop();
+    await download();
     mergeBatchBlobs();
 }
 
@@ -65,15 +69,15 @@ async function startRecord() {
         {
             video: 
                 {
-                    frameRate: 30,
+                    frameRate: 24,
                     displaySurface: 'monitor', //"monitor", // 屏幕录屏
                     width: {
-                        ideal: 4096,
-                        max: 4096,
+                        ideal: 1980,
+                        max: 1980,
                     },
                     height: {
-                        ideal: 2160,
-                        max: 2160,
+                        ideal: 1020,
+                        max: 1020,
                     },
                 },
             audio: false,
@@ -83,6 +87,18 @@ async function startRecord() {
         localStorage.setItem("webRecordStartTime", Date.now());
         localStorage.setItem("webRecording", true);
         mediaRecorder = new MediaRecorder(stream, {type: `video/${format}`});
+        const tracks = mediaRecorder.stream.getVideoTracks();
+        const hint = 'detail';
+        tracks.forEach((track) => {
+            if ("contentHint" in track) {
+                track.contentHint = hint;
+                if (track.contentHint !== hint) {
+                    console.error(`Invalid video track contentHint: "${hint}"`);
+                }
+            } else {
+            console.error("MediaStreamTrack contentHint attribute not supported");
+            }
+        });
         mediaRecorder.onstop = (event) => {
             console.log('----onstop----', event);
         }
@@ -126,10 +142,8 @@ async function fixDurationTime(blobs) {
         );
     });
 }
+
 async function mergeBatchBlobs() {
-    const filter = function(data){
-        return data.type === 'origin';
-    }
     const blobs = await myDB.getAllBlobs(filter);
     console.log('mergeBatchBlobs:', blobs);
     if(blobs.length) {
@@ -145,13 +159,26 @@ async function mergeBatchBlobs() {
     await myDB.deleteObjectsById(blobs.map(d => d.chunk_id));
 }
 async function download() {
-    const all = await myDB.getAllBlobs();
+    const all = await myDB.getAllBlobs(filter);
     const data = await fixDurationTime(all.map(d => d.data));
-    const url = URL.createObjectURL(new Blob([data]), { type: `video/${format}` });
+    const url = URL.createObjectURL(new Blob([data], { type: `video/${format}` }));
     const  a = document.createElement('a');
     a.href = url;
     a.style.display = 'none';
     a.download='record.' + format;
+    a.click();
+    return true;
+}
+
+async function downloadBase64() {
+    const all = await myDB.getAllBlobs(filter);
+    const data = await fixDurationTime(all.map(d => d.data));
+    // const base64 = await blobToBase64(data);
+    const url = URL.createObjectURL(new Blob([data],{ type: `video/webm` }));
+    const  a = document.createElement('a');
+    a.href = url;
+    a.style.display = 'none';
+    a.download='record.' + 'webm';
     a.click();
     return true;
 }
@@ -212,26 +239,5 @@ function init() {
         }
     }
     setInterval(() =>{ update()}, 1000);
-
-    // const script = document.createElement("script");
-
-    // script.src = "./ffmpeg/ffmpeg.min.js";
-    // script.async = true;
-    // if(!crossOriginIsolated) {
-    //     // window.SharedArrayBuffer = ArrayBuffer;
-    //   }
-    // script.onload = () => {
-    // //   loadFfmpeg();
-    //   const { createFFmpeg } = FFmpeg;
-    //   // Initialize ffmpeg.js
-    //   const ffmpeg = createFFmpeg({
-    //     log: false,
-    //     progress: (params) => {},
-    //     corePath: "./ffmpeg/ffmpeg-core.js",
-    //   });
-    //   ffmpeg.load();
-    // };
-
-    // document.body.appendChild(script);
 }
 init();

@@ -22,9 +22,6 @@ Web record demo by WebRtc.
     ubuntu：没有该项设置, 但是不报错。
     ps: Screenity插件可以录制整个屏幕，但也要弹窗指定录制窗口，底下也有悬浮窗。
 
-- CPU占用高
-    - mac上10%左右，ubuntu到100%。。。
-
 ### 非localhost访问(外部ip访问)会提示getDisplayMedia为undefined，原因为chrome安全性问题，只能以localhost方式或https或者file://形式安全访问
 解决办法：
 打开 chrome://flags/#unsafely-treat-insecure-origin-as-secure
@@ -48,8 +45,11 @@ Web record demo by WebRtc.
 - 使用ngrok生成https url访问
 
 
-### 使用ffmpeg合并多个视频
-- 准备mp4视频
+### 使用ffmpeg合并多个webm视频
+#### 1，webm转mp4视频
+ffmpeg -i video.webm video.mp4
+
+#### 2，合并mp4
 - 新建video.txt文件，写如以下内容:
 
 file '1.mp4'
@@ -58,4 +58,4 @@ file '2.mp4'
 
 - 执行命令：
 
-./ffmpeg -f concat -i video.txt -c copy concat.mp4
+ffmpeg -f concat -i video.txt -c copy ouput.mp4
