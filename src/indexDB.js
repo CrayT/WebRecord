@@ -50,10 +50,15 @@ class MyDB {
         // 第一次创建db、store
         console.log('indexdb onupgradeneeded')
         const mydb = event.target.result;
-        // 创建table，指定key键值
         this.mydb = mydb;
         this.state = DBState.Ready;
-        this.dispatch({type: 'success'});
+        // 第一次需要创建table，指定key键值
+        const store = mydb.createObjectStore(TABLE_NAME, {keyPath: 'chunk_id'});
+        console.log('store: ', store)
+        setTimeout(() => {
+            this.dispatch({type: 'success'});
+        }, 100)
+        
     }
 
     async waitReady() {

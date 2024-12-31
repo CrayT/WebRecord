@@ -59,3 +59,16 @@ file '2.mp4'
 - 执行命令：
 
 ffmpeg -f concat -i video.txt -c copy ouput.mp4
+
+
+### ffmpeg录屏
+- 1，查看本地设备编号：
+ffmpeg -f avfoundation -list_devices true -i ""
+
+> 上面是video，下面是audio
+
+- 2，开始录屏：
+
+ffmpeg -video_size 1280x720 -framerate 30 -f avfoundation -i "1:0" out.mkv
+
+> 用ctrl+C停止

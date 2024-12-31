@@ -17,9 +17,8 @@ async function readyWork() {
     if(localStorage.getItem("webRecording") == 'true'){
         // 2，将已存的数据保存为webm
         await downloadBase64(); //download()
-        await mergeBatchBlobs();
-        // 3，清空数据库的数据
-        // await myDB.clearAll()
+        const blobs = await mergeBatchBlobs();
+        await deleteBlobs(blobs);
         // 4, 继续录制
         startRecord();
     } else {
@@ -45,8 +44,9 @@ async function stopRecord() {
     localStorage.setItem("webRecording", false);
     localStorage.setItem("webRecordStopTime", Date.now());
     mediaRecorder && mediaRecorder.stream.getVideoTracks()[0].stop();
-    await download();
-    mergeBatchBlobs();
+    // await download(); // test
+    const blobs = await mergeBatchBlobs();
+    replay();
 }
 
 window.addEventListener('unload', function (e) {
@@ -147,17 +147,22 @@ async function mergeBatchBlobs() {
     const blobs = await myDB.getAllBlobs(filter);
     console.log('mergeBatchBlobs:', blobs);
     if(blobs.length) {
-    // 先合并上一次的数据
-    await myDB.addBlob({
-        chunk_id: Date.now(),
-        data: new Blob(blobs.map(d => d.data), {type: blobs[0].data.type}),
-        type: 'batch',
-        duration: Number(localStorage.getItem("webRecordStopTime")) -  Number(localStorage.getItem("webRecordStartTime")),
-    });
+        // 先合并上一次的数据
+        await myDB.addBlob({
+            chunk_id: Date.now(),
+            data: new Blob(blobs.map(d => d.data), {type: blobs[0].data.type}),
+            type: 'batch',
+            duration: Number(localStorage.getItem("webRecordStopTime")) -  Number(localStorage.getItem("webRecordStartTime")),
+        });
     }
+    return blobs;
     // 再把合并后的数据删除
+    // await myDB.deleteObjectsById(blobs.map(d => d.chunk_id));
+}
+async function deleteBlobs(blobs) {
     await myDB.deleteObjectsById(blobs.map(d => d.chunk_id));
 }
+
 async function download() {
     const all = await myDB.getAllBlobs(filter);
     const data = await fixDurationTime(all.map(d => d.data));
