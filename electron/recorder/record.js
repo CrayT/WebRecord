@@ -1,86 +1,72 @@
+import './version.js';
 import { myDB } from "./indexDB.js";
 import {fixWebmDuration} from "./fix-webm-duration.js";
-import { base64ToUint8Array, blobToBase64 } from "./util.js";
+import { base64ToUint8Array } from "./util.js";
 
 const blobs = [];
 let mediaRecorder;
-window.currentBlob = blobs;
 
 const format = 'webm';
 
-let grouId = Math.random().toString(30).slice(-8); // 8位随机字符串
-const filter = function(data){
-    return data.type === 'origin';
-}
+localStorage.setItem("webRecording", false);
+localStorage.setItem("webRecordDuration", 0);
 
 async function readyWork() {
-    if(localStorage.getItem("webRecording") == 'true'){
-        // 2，将已存的数据保存为webm
-        await downloadBase64(); //download()
-        const blobs = await mergeBatchBlobs();
-        await deleteBlobs(blobs);
-        // 4, 继续录制
-        startRecord();
-    } else {
-        // 清空数据库数据
-        await myDB.clearAll();
-    }
+    await myDB.clearAll();
 }
 readyWork();
 
-function replay(data) {
-    console.log('blobs', data, blobs)
+async function replay() {
+    const all = await myDB.getAllBlobs();
+    const data = await fixDurationTime(all.map(d => d.data));
+    const url = URL.createObjectURL(new Blob([data], { type: `video/${format}` }));
     const video = document.querySelector('video');
-    video.src = URL.createObjectURL(new Blob(data ? data : blobs, {type: 'video/webm'}));
+    video.src = url;
     video.play();
 }
+
 function pauseRecord() {
+    localStorage.setItem("webRecording", false);
+    const webRecordDuration = localStorage.getItem("webRecordDuration") ? Number(localStorage.getItem("webRecordDuration")) : 0;
+    localStorage.setItem("webRecordDuration", webRecordDuration + (Date.now() - Number(localStorage.getItem("webRecordStartTime"))) / 1000);
+
     mediaRecorder && mediaRecorder.pause();
 }
 function resumeRecord() {
+    localStorage.setItem("webRecording", true);
+    localStorage.setItem("webRecordStartTime", Date.now());
     mediaRecorder && mediaRecorder.resume();
 }
 async function stopRecord() {
+    console.log('stopRecord',mediaRecorder )
     localStorage.setItem("webRecording", false);
-    localStorage.setItem("webRecordStopTime", Date.now());
+    const webRecordDuration = localStorage.getItem("webRecordDuration") ? Number(localStorage.getItem("webRecordDuration")) : 0;
+    localStorage.setItem("webRecordDuration", webRecordDuration + (Date.now() - Number(localStorage.getItem("webRecordStartTime"))) / 1000);
     mediaRecorder && mediaRecorder.stream.getVideoTracks()[0].stop();
     replay();
 }
 
-window.addEventListener('unload', function (e) {
-    e.preventDefault();
-    // 刷新后设置当前时刻时间即当前被动结束录制时间
-    localStorage.setItem("webRecordStopTime", Date.now());
-    mediaRecorder && mediaRecorder.stream.getVideoTracks()[0].stop();
-});
-
 async function startRecord() {
-    // 非录制中时，清空db
-    if(localStorage.getItem("webRecording") !== 'true') {
-        await myDB.clearAll();
-    }
+    console.log(navigator.mediaDevices)
     blobs.length = 0;
+    localStorage.setItem("webRecording", false);
+    localStorage.setItem("webRecordDuration", 0);
+    await myDB.clearAll();
     navigator.mediaDevices.getDisplayMedia(
         {
             video: 
                 {
                     frameRate: 24,
-                    displaySurface: 'monitor', //"monitor", // 屏幕录屏
-                    width: {
-                        ideal: 1980,
-                        max: 1980,
-                    },
-                    height: {
-                        ideal: 1020,
-                        max: 1020,
-                    },
+                    width: 1980,
+                    height: 1020,
                 },
             audio: false,
         }
     )
     .then(stream => {
-        localStorage.setItem("webRecordStartTime", Date.now());
         localStorage.setItem("webRecording", true);
+        localStorage.setItem("webRecordStartTime", Date.now());
+
         mediaRecorder = new MediaRecorder(stream, {type: `video/${format}`});
         const tracks = mediaRecorder.stream.getVideoTracks();
         const hint = 'detail';
@@ -99,20 +85,18 @@ async function startRecord() {
         }
         mediaRecorder.ondataavailable = async (event) => {
             console.log('data', event);
-            const bufer = await event.data.arrayBuffer()
-            console.log('bufer', bufer);
-
-            if(event.data && event.data.size > 0 && localStorage.getItem("webRecording") == 'true'){
+            if(event.data && event.data.size > 0){
                 blobs.push(event.data);
                 myDB.addBlob({
                     chunk_id: Date.now(), // 用递增的时间戳作为主键
                     data: event.data,
-                    group_id: grouId,
                     type: 'origin',
                 });
             }
         }
         mediaRecorder.start(1000);
+    }).catch(e => {
+        console.log('getDisplayMedia error: ', e)
     });
 }
 
@@ -122,7 +106,7 @@ async function fixDurationTime(blobs) {
         const blob = new Blob(blobs, {
             type: "video/webm"
         });
-        const durationTime = Number(localStorage.getItem("webRecordStopTime")) -  Number(localStorage.getItem("webRecordStartTime"))
+        const durationTime = localStorage.getItem("webRecordDuration") ? Number(localStorage.getItem("webRecordDuration")) : 0;
         console.log('real durationTime in download:', durationTime)
         fixWebmDuration(
             blob,
@@ -141,28 +125,8 @@ async function fixDurationTime(blobs) {
     });
 }
 
-async function mergeBatchBlobs() {
-    const blobs = await myDB.getAllBlobs(filter);
-    console.log('mergeBatchBlobs:', blobs);
-    if(blobs.length) {
-        // 先合并上一次的数据
-        await myDB.addBlob({
-            chunk_id: Date.now(),
-            data: new Blob(blobs.map(d => d.data), {type: blobs[0].data.type}),
-            type: 'batch',
-            duration: Number(localStorage.getItem("webRecordStopTime")) -  Number(localStorage.getItem("webRecordStartTime")),
-        });
-    }
-    return blobs;
-    // 再把合并后的数据删除
-    // await myDB.deleteObjectsById(blobs.map(d => d.chunk_id));
-}
-async function deleteBlobs(blobs) {
-    await myDB.deleteObjectsById(blobs.map(d => d.chunk_id));
-}
-
 async function download() {
-    const all = await myDB.getAllBlobs(filter);
+    const all = await myDB.getAllBlobs();
     const data = await fixDurationTime(all.map(d => d.data));
     const url = URL.createObjectURL(new Blob([data], { type: `video/${format}` }));
     const  a = document.createElement('a');
@@ -173,35 +137,7 @@ async function download() {
     return true;
 }
 
-async function downloadBase64() {
-    const all = await myDB.getAllBlobs(filter);
-    const data = await fixDurationTime(all.map(d => d.data));
-    // const base64 = await blobToBase64(data);
-    const url = URL.createObjectURL(new Blob([data],{ type: `video/webm` }));
-    const  a = document.createElement('a');
-    a.href = url;
-    a.style.display = 'none';
-    a.download='record.' + 'webm';
-    a.click();
-    return true;
-}
 function init() {
-    const recordBrower = document.getElementById('recordBrower');
-    const recordCamera = document.getElementById('recordCamera');
-
-    recordBrower.addEventListener("change", () => {
-        console.log('recordBrower', recordBrower.checked)
-        if (recordBrower.checked) {
-            recordCamera.checked = false;
-        }
-    });
-    recordCamera.addEventListener("change", () => {
-        console.log('recordCamera', recordCamera.checked)
-        if (recordCamera.checked) {
-            recordBrower.checked = false;
-            recordType = 'camera';
-        }
-    });
 
     const start = document.getElementById('startRecord');
     start.onclick = () => {
@@ -235,12 +171,13 @@ function init() {
     }
 
     const timeBlock = document.getElementById('timeBlock');
-
     const update = () => {
         if(localStorage.getItem('webRecordStartTime') && localStorage.getItem("webRecording") == 'true'){
-            timeBlock.innerHTML = `${(Date.now() - localStorage.getItem('webRecordStartTime')) / 1000}s`;
+            let webRecordDuration = localStorage.getItem("webRecordDuration") ? Number(localStorage.getItem("webRecordDuration")) : 0;
+            webRecordDuration += (Date.now() - Number(localStorage.getItem("webRecordStartTime"))) / 1000;
+            timeBlock.innerHTML = `${webRecordDuration}s`;
         }
     }
-    setInterval(() =>{ update()}, 1000);
+    setInterval(() =>{ update()}, 100);
 }
 init();
