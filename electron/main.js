@@ -47,6 +47,11 @@ function setTitle(event, title){
 }
 
 async function checkPrevilage() {
+  console.log('systemPreferences', systemPreferences)
+  // systemPreferences.getMediaAccessStatus接口只在mac和windows上有效
+  if(process.platform === 'linux') {
+    return false;
+  }
   const devicePrivilege = systemPreferences.getMediaAccessStatus('screen');
   console.log('checkPrevilage: ', devicePrivilege)
   if(devicePrivilege !== 'granted') {
@@ -65,17 +70,20 @@ async function checkPrevilage() {
 }
 
 app.whenReady().then(async () => {
-    // 检查权限
-    ipcMain.handle('check-access', checkPrevilage);
+  console.log("platform: ",process.platform)
+  // 检查权限
+  ipcMain.handle('check-access', checkPrevilage);
+    
+  ipcMain.on('set-title', setTitle);
 
-    ipcMain.on('set-title', setTitle);
+  createWindow();
 
-    createWindow();
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow()
-    });
+  app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  });
 });
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+  console.log("quit: ",process.platform)
+  if (process.platform !== 'darwin') app.quit()
 });
