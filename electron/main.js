@@ -1,7 +1,7 @@
 /**
  * 主进程
  */
-const { app, BrowserWindow, ipcMain, Menu, desktopCapturer, session, systemPreferences, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, WebContentsView, desktopCapturer, session, systemPreferences, dialog, shell } = require('electron');
 const path = require('node:path')
 
 const createWindow = () => {
@@ -9,9 +9,20 @@ const createWindow = () => {
       width: 800,
       height: 600,
       webPreferences: {
-        preload: path.join(__dirname, 'preload.js')
+        preload: path.join(__dirname, 'preload.js'),
       },
     });
+
+    // 多页面同时渲染
+    // const view1 = new WebContentsView()
+    // win.contentView.addChildView(view1)
+    // view1.webContents.loadURL('https://electronjs.org')
+    // view1.setBounds({ x: 0, y: 0, width: 400, height: 400 })
+
+    // const view2 = new WebContentsView()
+    // win.contentView.addChildView(view2)
+    // view2.webContents.loadURL('https://github.com/electron/electron')
+    // view2.setBounds({ x: 400, y: 0, width: 400, height: 400 })
 
     session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
       desktopCapturer.getSources({types: ['screen',]}).then((sources) => {
@@ -36,6 +47,7 @@ const createWindow = () => {
     Menu.setApplicationMenu(menu);
 
     win.loadFile('./recorder/index.html')
+
     win.webContents.openDevTools();
 }
 
@@ -71,6 +83,7 @@ async function checkPrevilage() {
 
 app.whenReady().then(async () => {
   console.log("platform: ",process.platform)
+  console.log("arch: ",process.arch)
   // 检查权限
   ipcMain.handle('check-access', checkPrevilage);
     
@@ -81,7 +94,10 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
   });
-});
+  // 本地应用数据目录 通过app获取 
+  // const localUserDataPath = app.getPath('userData');
+  // console.log('userData: ', localUserDataPath)
+}); 
 
 app.on('window-all-closed', () => {
   console.log("quit: ",process.platform)
