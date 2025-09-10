@@ -13,16 +13,49 @@ const createWindow = () => {
       },
     });
 
-    // 多页面同时渲染
-    // const view1 = new WebContentsView()
-    // win.contentView.addChildView(view1)
-    // view1.webContents.loadURL('https://electronjs.org')
-    // view1.setBounds({ x: 0, y: 0, width: 400, height: 400 })
+    // 开启支持SharedArrayBuffer
+    win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      details.responseHeaders['Cross-Origin-Opener-Policy'] = ['same-origin'];
+      details.responseHeaders['Cross-Origin-Embedder-Policy'] = ['require-corp'];
+      callback({ responseHeaders: details.responseHeaders });
+  });
 
-    // const view2 = new WebContentsView()
+    win.on('resize', (e) => {
+      console.log(win.getSize());
+    })
+    // 多页面同时渲染
+    const view1 = new WebContentsView()
+    win.contentView.addChildView(view1)
+    view1.webContents.loadURL('https://electronjs.org')
+    view1.setBounds({ x: 0, y: 0, width: 800, height: 400 })
+
+
+    const view2 = new WebContentsView({
+      resizable: true,
+      movable: true,
+      // parent:win,
+      frame: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+      },
+    })
     // win.contentView.addChildView(view2)
-    // view2.webContents.loadURL('https://github.com/electron/electron')
-    // view2.setBounds({ x: 400, y: 0, width: 400, height: 400 })
+    view2.webContents.loadFile('./recorder/index.html')
+    view2.setBounds({ x: 0, y: 0, width: 400, height: 400 })
+    view2.webContents.openDevTools();
+
+    const moveableWin = new BrowserWindow({
+      parent: win,
+      width: 400,
+      height: 400,
+      movable: true,
+      resizable: true,
+      frame: false,
+      webPreferences:{
+
+      }
+    });
+    moveableWin.contentView.addChildView(view2);
 
     session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
       desktopCapturer.getSources({types: ['screen',]}).then((sources) => {
@@ -46,7 +79,7 @@ const createWindow = () => {
     ])
     Menu.setApplicationMenu(menu);
 
-    win.loadFile('./recorder/index.html')
+    // win.loadFile('./recorder/index.html')
 
     win.webContents.openDevTools();
 }
@@ -69,8 +102,8 @@ async function checkPrevilage() {
   if(devicePrivilege !== 'granted') {
     const res = await dialog.showMessageBox({
       type: "info",
-      title: "需要开启录屏权限",
-      message: "在系统设置中开启录屏权限",
+      title: `${process.resourcesPath}`,
+      message: `${process.resourcesPath}`,
       buttons: ['打开系统录屏设置', '取消'],
     });
     if(res.response === 0) {
@@ -84,11 +117,18 @@ async function checkPrevilage() {
 app.whenReady().then(async () => {
   console.log("platform: ",process.platform)
   console.log("arch: ",process.arch)
+  console.log('resourcesPath:',process.resourcesPath)
+  console.log('app.getPath()', app.getPath('appData'))
   // 检查权限
   ipcMain.handle('check-access', checkPrevilage);
-    
-  ipcMain.on('set-title', setTitle);
 
+  ipcMain.on('set-title', setTitle);
+  const res = await dialog.showMessageBox({
+    type: "info",
+    title: `${process.resourcesPath}`,
+    message: `${process.resourcesPath}`,
+    buttons: ['打开系统录屏设置', '取消'],
+  });
   createWindow();
 
   app.on('activate', () => {

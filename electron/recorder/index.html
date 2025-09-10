@@ -1,4 +1,18 @@
 <body>
+    <head>
+        <style>
+            .drag-bar{
+                height: 30px;
+                background: rgba(0,0,0,0.7);
+                -webkit-app-region: drag;
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                padding: 0 10px;
+            }
+        </style>
+    </head>
+    <div class="drag-bar"></div>
     <div id="version"></div>
     <div style="position: relative;margin-top: 20px;margin-left: 20px;display: flex;flex-direction: column;">
         <button style="width: 100px;" id="startRecord">开始录制</button>

@@ -8,11 +8,13 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
-    "se":"electron ."
+    "se": "electron .",
+    "make:b": "electron-builder --mac --x64"
   },
   "author": "",
   "license": "ISC",
-  "devDependencies": {
+  "devDependencies": {    
+    "electron-builder": "^26.0.12",
     "@electron-forge/cli": "^7.5.0",
     "@electron-forge/maker-deb": "^7.5.0",
     "@electron-forge/maker-rpm": "^7.5.0",
@@ -27,10 +29,6 @@
     "electron-squirrel-startup": "^1.0.1"
   },
   "build": {
-    "mac": {
-      "entitlements": "entitlements.mac.plist",
-      "hardenedRunTime": true,
-      "entitlementsInherit": "entitlements.mac.plist"
-    }
+    "files": "!node_modules"
   }
 }

@@ -7,7 +7,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   node: () => process.versions.node,
   chrome: () => process.versions.chrome,
-  electron: () => process.versions.electron,
+  electron: () => process.resourcesPath,
   
   // invoke-handle处理双向数据：渲染进程 <-> 主进程
   checkAccess: () => ipcRenderer.invoke('check-access'),
@@ -16,4 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onUpdateCounter: (cb) => ipcRenderer.on('test-test', (_event, value) => cb(value) ),
 
+})
+
+window.addEventListener('resize', (e) => {
+  console.log('resize',e)
 })
